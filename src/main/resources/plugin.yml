@@ -1,0 +1,5 @@
+name: WorldStatusAPI
+version: 1.0.0
+main: de.scholle.worldstatusapi.WorldStatusPlugin
+api-version: 1.20
+depend: [PlaceholderAPI]
