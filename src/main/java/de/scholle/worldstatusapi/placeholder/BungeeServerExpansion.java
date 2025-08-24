@@ -3,6 +3,7 @@ package de.scholle.worldstatusapi.placeholder;
 import me.clip.placeholderapi.expansion.PlaceholderExpansion;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
+import org.bukkit.scheduler.BukkitTask;
 
 import java.io.IOException;
 import java.net.Socket;
@@ -16,18 +17,28 @@ public class BungeeServerExpansion extends PlaceholderExpansion {
     private final Map<String, String> serverHost;
     private final Map<String, Integer> serverPort;
     private final int updateIntervalSeconds;
+    private BukkitTask updateTask;
 
     public BungeeServerExpansion(Plugin plugin, Map<String, String> hosts, Map<String, Integer> ports, int updateIntervalSeconds) {
         this.plugin = plugin;
         this.serverHost = hosts;
         this.serverPort = ports;
         this.updateIntervalSeconds = updateIntervalSeconds;
+        startUpdateTask();
+    }
 
-        plugin.getServer().getScheduler().runTaskTimerAsynchronously(plugin, () -> {
+    private void startUpdateTask() {
+        updateTask = plugin.getServer().getScheduler().runTaskTimerAsynchronously(plugin, () -> {
             for (String server : serverHost.keySet()) {
                 serverStatus.put(server, isServerOnline(serverHost.get(server), serverPort.get(server)));
             }
         }, 20L, updateIntervalSeconds * 20L);
+    }
+
+    public void cancelUpdateTask() {
+        if (updateTask != null) {
+            updateTask.cancel();
+        }
     }
 
     private boolean isServerOnline(String host, int port) {
@@ -40,7 +51,7 @@ public class BungeeServerExpansion extends PlaceholderExpansion {
 
     @Override
     public String getIdentifier() {
-        return "bungeeserver";
+        return "bungeeserver"; // Haupt-Identifier, wird von PAPI erkannt
     }
 
     @Override
@@ -50,7 +61,7 @@ public class BungeeServerExpansion extends PlaceholderExpansion {
 
     @Override
     public String getVersion() {
-        return "1.0.3";
+        return "1.0.5";
     }
 
     @Override
@@ -60,11 +71,18 @@ public class BungeeServerExpansion extends PlaceholderExpansion {
 
     @Override
     public String onPlaceholderRequest(Player player, String identifier) {
-        String[] parts = identifier.split("_");
-        if (parts.length == 2 && parts[1].equalsIgnoreCase("status")) {
-            String server = parts[0];
+        String server = null;
+        // Unterstützt beide Präfixe: bungeeserver oder wsapi
+        if (identifier.startsWith("bungeeserver_") && identifier.endsWith("_status")) {
+            server = identifier.substring("bungeeserver_".length(), identifier.length() - "_status".length());
+        } else if (identifier.startsWith("wsapi_") && identifier.endsWith("_status")) {
+            server = identifier.substring("wsapi_".length(), identifier.length() - "_status".length());
+        }
+
+        if (server != null) {
             return serverStatus.getOrDefault(server, false) ? "Online" : "Offline";
         }
+
         return null;
     }
 }

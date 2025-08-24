@@ -2,6 +2,8 @@ package de.scholle.worldstatusapi;
 
 import de.scholle.worldstatusapi.placeholder.BungeeServerExpansion;
 import org.bukkit.Bukkit;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -10,12 +12,17 @@ import java.util.Map;
 
 public class WorldStatusPlugin extends JavaPlugin {
 
+    private BungeeServerExpansion expansion;
+
     @Override
     public void onEnable() {
         saveDefaultConfig();
-        FileConfiguration cfg = getConfig();
+        loadExpansion();
+    }
 
-        int updateInterval = cfg.getInt("update-interval-seconds", 10); // Default 10 Sekunden
+    private void loadExpansion() {
+        FileConfiguration cfg = getConfig();
+        int updateInterval = cfg.getInt("update-interval-seconds", 10);
 
         Map<String, String> hosts = new HashMap<>();
         Map<String, Integer> ports = new HashMap<>();
@@ -28,7 +35,8 @@ public class WorldStatusPlugin extends JavaPlugin {
         }
 
         if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null) {
-            BungeeServerExpansion expansion = new BungeeServerExpansion(this, hosts, ports, updateInterval);
+            if (expansion != null) expansion.cancelUpdateTask();
+            expansion = new BungeeServerExpansion(this, hosts, ports, updateInterval);
             expansion.register();
             getLogger().info("WorldStatusAPI geladen.");
         } else {
@@ -38,7 +46,14 @@ public class WorldStatusPlugin extends JavaPlugin {
     }
 
     @Override
-    public void onDisable() {
-        getLogger().info("WorldStatusAPI deaktiviert.");
+    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        if ((command.getName().equalsIgnoreCase("worldstatusapi") || command.getName().equalsIgnoreCase("wsapi"))
+                && args.length > 0 && args[0].equalsIgnoreCase("reload")) {
+            reloadConfig();
+            loadExpansion();
+            sender.sendMessage("§aWorldStatusAPI: Config und Placeholders neu geladen.");
+            return true;
+        }
+        return false;
     }
 }
